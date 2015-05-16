@@ -1,15 +1,23 @@
 package com.example.randy.scrollselecotr;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Point;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.EdgeEffectCompat;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.EdgeEffect;
 import android.widget.OverScroller;
-import android.widget.Scroller;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by randy on 15-5-14.
@@ -40,7 +48,47 @@ public class ScrollView extends View {
     private final int MESSAGE_SCROLL=0;
     private final int MESSAGE_JUSTIFY=1;
 
-    private EdgeEffectCompat
+
+
+    /**
+     * paint的地方
+     */
+    // Viewport extremes. See mCurrentViewport for a discussion of the viewport.
+    private static final float AXIS_X_MIN = -1f;
+    private static final float AXIS_X_MAX = 1f;
+    private static final float AXIS_Y_MIN = -1f;
+    private static final float AXIS_Y_MAX = 1f;
+
+    /**由于mCurrentViewport是代表整个画布,mContentRect是代表当前显示的大小,所以,
+    *要转换过去,而mCurrentViewport只是代表整个画布,而不是真正的整个画布
+    **/
+    private RectF mCurrentViewport=new RectF(AXIS_X_MIN,AXIS_Y_MIN,AXIS_X_MAX,AXIS_Y_MAX);
+    /**
+     *
+     */
+    private Rect mContentRect=new Rect();
+
+    private Point mSurfaceSizeBuffer =new Point();
+    /**
+     * 显示的数据
+     */
+    private List<String> data=new ArrayList<String>();
+
+    private boolean canScrollX=true;   //是否可以左右进行滑动
+    private boolean canScrollY=true;  //是否可以上下进行滑动
+
+    private EdgeEffectCompat mEdgeEffectTop;
+    private EdgeEffectCompat mEdgeEffectBottom;
+    private EdgeEffectCompat mEdgeEffectRight;
+    private EdgeEffectCompat mEdgeEffectLeft;
+
+    private boolean mEdgeEffectRightActive=false;
+    private boolean mEdgeEffectLeftActive=false;
+    private boolean mEdgeEffectTopActive=false;
+    private boolean mEdgeEffectBottomActive=false;
+
+
+
 
     private Handler animationHandler=new Handler() {
         @Override
@@ -51,7 +99,7 @@ public class ScrollView extends View {
     /**
      * paint相关的
      */
-
+    private Paint mAxisPaint;
 
     /**
      *
@@ -94,7 +142,54 @@ public class ScrollView extends View {
         simpleOnGestureListener=new GestureDetector.SimpleOnGestureListener(){
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                //要进行滚动的啊
+                /**要进行滚动的啊
+                计算滚动的距离,更新mContetnRect的值
+                 {@link mCurrentViewport}
+                **/
+                float viewportOffsetX=distanceX*mCurrentViewport.width()/mContentRect.width();
+                float viewportOffsetY=distanceY*mCurrentViewport.height()/mContentRect.height();
+
+                computeScrollSurfaceSize(mSurfaceSizeBuffer);
+
+                /**
+                 * 计算滑动的x,y值
+                 * {@link computeScrollSurfaceSize()}
+                 * 如果不经zoom的,只进行移动的话
+                 * mCurrentViewport.left=x_min
+                 * 计算在当前mSurfaceSize下的滑动的距离????
+                 */
+
+                int scrolledX=(int)(mSurfaceSizeBuffer.x*(mCurrentViewport.left+viewportOffsetX-
+                                        AXIS_X_MIN)/(AXIS_X_MAX-AXIS_X_MIN));
+                int scrolledY=(int)(mSurfaceSizeBuffer.y*(AXIS_Y_MAX-mCurrentViewport.bottom-
+                                        viewportOffsetY)/(AXIS_Y_MAX-AXIS_Y_MIN));
+
+                boolean tcanScrollX=canScrollX&&(
+                            mCurrentViewport.left>AXIS_X_MIN
+                         ||mCurrentViewport.right<AXIS_X_MAX
+                        );
+                boolean tcanScrollY=canScrollY&&(
+                        mCurrentViewport.top>AXIS_Y_MIN
+                        ||mCurrentViewport.bottom<AXIS_Y_MAX
+                        );
+                //改变了mCurrentViewport的啊.
+                setmCurrentViewportBottomAndLeft(mCurrentViewport.left+viewportOffsetX,
+                                                        mCurrentViewport.bottom+viewportOffsetY);
+                //对四个角的effect进行onPull
+                if (canScrollX&&scrolledX<0) {
+                    //??????TODO: scrolledX/(float)mContentRect.width
+                    mEdgeEffectLeft.onPull(scrolledX/(float)mContentRect.width());
+                    mEdgeEffectLeftActive=true;
+                }
+                /**
+                 *  scrolledX+mContetnRect.width>mSurfaceSizeBuffer.x
+                 */
+                if (canScrollX&&scrolledX> mSurfaceSizeBuffer.x-mContentRect.width()) {
+                    mEdgeEffectRight.onPull((scrolledX-mSurfaceSizeBuffer.x+mContentRect.width())
+                                    /(float)mContentRect.width());
+                    mEdgeEffectRightActive=true;
+                }
+                return true;
             }
 
             @Override
@@ -122,6 +217,20 @@ public class ScrollView extends View {
     }
 
     /**
+     * Computes the current scrollable surface size, in pixels. For example, if the entire chart
+     * area is visible, this is simply the current size of {@link #mContentRect}. If the chart
+     * is zoomed in 200% in both directions, the returned size will be twice as large horizontally
+     * and vertically.
+     * @param out
+     */
+    private void computeScrollSurfaceSize(Point out) {
+        out.set(
+                (int) (mContentRect.width()*(AXIS_X_MAX-AXIS_X_MIN)/mCurrentViewport.width()),
+                (int) (mContentRect.height()*(AXIS_Y_MAX-AXIS_Y_MIN)/mCurrentViewport.height())
+        );
+    }
+
+    /**
      * 清除handler还未处理的message
      */
     private void clearMessage() {
@@ -138,6 +247,135 @@ public class ScrollView extends View {
 
     interface SelectedListener {
         public void selectedOneItem();
+    }
+    public void setAdatperData(List<String> data) {
+        this.data=data;
+    }
+
+    /**
+     *   自定义view时必须要overide的两个函数啊.
+     */
+    /**
+     *
+     * @param widthMeasureSpec
+     * @param heightMeasureSpec
+     */
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+    }
+
+    /**
+     * 设置bottom and left
+     * @param x
+     * @param y
+     */
+    private void setmCurrentViewportBottomAndLeft(float x,float y) {
+        float curWidth=mCurrentViewport.width();
+        float curHeight=mCurrentViewport.height();
+        // make sure x>=x_min && x+curWidth<=x_max
+        x=Math.max(AXIS_X_MIN,Math.min(x,AXIS_X_MAX-curWidth));
+        // make sure y-curHeight>y_min && y < y_max
+        y=Math.max(AXIS_Y_MIN+curHeight,Math.min(y,AXIS_Y_MAX));
+        mCurrentViewport.set(x,y-curHeight,x+curWidth,y);
+        //Cause an invalidate to happen on the next animation time step,
+        // typically the next display frame
+        ViewCompat.postInvalidateOnAnimation(this);//???
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////  draw
+    ///////////////////////////////////////////////////////////////////////////////////
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        //Draws the axes 画出标志的两条线
+        drawTwoLine(canvas);
+        //裁剪一些区域
+        int clipRestoreCount=canvas.save();
+        drawDataUnclipped(canvas);
+        drawEdgeEffect(canvas);
+
+        canvas.restoreToCount(clipRestoreCount);
+
+        canvas.drawRect(mContentRect,mAxisPaint);
+    }
+
+    /**
+     * 画出选择器选择的数据的啊.
+     */
+    private void drawDataUnclipped(Canvas canvas) {
+
+    }
+
+    /**
+     * 画出时间卷轴上的两条线啊.
+     * @param canvas
+     */
+    private void drawTwoLine(Canvas canvas) {
+
+    }
+
+    /**
+     * 画滑动到边界的glow的界面效果
+     * @param canvas
+     */
+    private void drawEdgeEffect(Canvas canvas) {
+        boolean needsInvalidate=false;
+        if (!mEdgeEffectTop.isFinished()) {  //如果没有接收
+            final int restoreCount=canvas.save();
+
+            canvas.translate(mContentRect.left,mContentRect.top); //将画布进行平移啦  //x y
+            //Set the size of this edge effect in pixels
+            mEdgeEffectTop.setSize(mContentRect.width(),mContentRect.height());
+            if (mEdgeEffectTop.draw(canvas)) {
+                needsInvalidate=true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectBottom.isFinished()) {
+            final int restoreCount=canvas.save();
+
+            canvas.translate(2*mContentRect.left-mContentRect.right,mContentRect.bottom);
+            mEdgeEffectBottom.setSize(mContentRect.width(),mContentRect.height());
+            if (mEdgeEffectBottom.draw(canvas)) {
+                needsInvalidate=true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectLeft.isFinished()) {
+            final int restoreCount=canvas.save();
+            canvas.translate(mContentRect.left,mContentRect.bottom);
+            canvas.rotate(-90,0,0);
+            mEdgeEffectLeft.setSize(mContentRect.height(),mContentRect.width());
+            if (mEdgeEffectLeft.draw(canvas)) {
+                needsInvalidate=true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectRight.isFinished()) {
+            final int restoreCount=canvas.save();
+            canvas.translate(mContentRect.right,mContentRect.top);
+            canvas.rotate(90,0,0);
+            mEdgeEffectRight.setSize(mContentRect.height(),mContentRect.width());
+            if (mEdgeEffectRight.draw(canvas)) {
+                needsInvalidate=true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
+        }
     }
 
 }
