@@ -2,7 +2,9 @@ package com.example.randy.scrollselecotr;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -10,14 +12,21 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
+import android.text.TextPaint;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Adapter;
+import android.widget.BaseAdapter;
 import android.widget.OverScroller;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.security.auth.login.LoginException;
 
 /**
  * Created by randy on 15-5-14.
@@ -26,6 +35,20 @@ import java.util.List;
  * 1
  */
 public class ScrollView extends View {
+    private static final String TAG="ScrollView";
+    //TODO:测试使用dataList,之后使用datper来获得显示数据啊
+    private ArrayList<String> dataList=new ArrayList<String>();
+
+    /**
+     *      当前选中的item的位置
+     */
+    private int choosedItemPosition;
+    /**
+     * 最多显示的item的数量,一般都是基数个啊
+     * 默认为3
+     */
+    private int showItemNum=3;
+
     //内部监听的
     private GestureDetector.SimpleOnGestureListener simpleOnGestureListener=null;
     //外部监听手势使用
@@ -88,6 +111,8 @@ public class ScrollView extends View {
     private boolean mEdgeEffectBottomActive=false;
 
 
+    private float mCurrentWidth;
+    private float mCurrentHeight;
 
 
     private Handler animationHandler=new Handler() {
@@ -100,6 +125,11 @@ public class ScrollView extends View {
      * paint相关的
      */
     private Paint mAxisPaint;
+    private Paint mTwoLinePaint;
+    private Paint mTextPaint;
+    private Path mFristLine;
+    private Path mSecondLine;
+
 
     /**
      *
@@ -110,8 +140,21 @@ public class ScrollView extends View {
 
     public ScrollView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+
+        // Sets up edge effects
+        Log.e(TAG,"effect init");
+        mEdgeEffectLeft = new EdgeEffectCompat(context);
+        mEdgeEffectTop = new EdgeEffectCompat(context);
+        mEdgeEffectRight = new EdgeEffectCompat(context);
+        mEdgeEffectBottom = new EdgeEffectCompat(context);
+
         initData();
     }
+
+    public ScrollView(Context context, AttributeSet attrs) {
+        this(context, attrs,0);  //error:super(),这样会调用super的,而不是this的
+    }
+
     private void initData() {
         initGestureListener();
         mDetector=new GestureDetector(getContext(),simpleOnGestureListener);
@@ -262,7 +305,13 @@ public class ScrollView extends View {
      */
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int minViewSize=getResources().getDimensionPixelSize(R.dimen.min_view_size);
+        int measuredWidth=Math.max(minViewSize+getPaddingLeft()+getPaddingRight(),widthMeasureSpec);
+        int mesauredHeight=Math.max(minViewSize+getPaddingBottom()+getPaddingTop(),heightMeasureSpec);
+
+        setMeasuredDimension(measuredWidth, mesauredHeight);
+        mCurrentHeight=getMeasuredHeight();
+        mCurrentWidth=measuredWidth;
     }
 
     @Override
@@ -294,7 +343,7 @@ public class ScrollView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-
+        int num=canvas.save();
         //Draws the axes 画出标志的两条线
         drawTwoLine(canvas);
         //裁剪一些区域
@@ -305,13 +354,30 @@ public class ScrollView extends View {
         canvas.restoreToCount(clipRestoreCount);
 
         canvas.drawRect(mContentRect,mAxisPaint);
+
+        canvas.restoreToCount(num);
     }
 
     /**
-     * 画出选择器选择的数据的啊.
+     * 画出选择器选择的数据的啊.画出要显示的数据或者要移动的图片
      */
     private void drawDataUnclipped(Canvas canvas) {
+        int num=canvas.save();
+        if (mTextPaint==null) {
+            setDefaultTextPaint();
+        }
+        canvas.drawText("3",10,10,mTextPaint);
 
+        canvas.drawText("4",10,mCurrentHeight/3+10,mTextPaint);
+
+        canvas.drawText("5",10,mCurrentHeight*2/3+10,mTextPaint);
+        canvas.restoreToCount(num);
+    }
+
+    private void setDefaultTextPaint() {
+        mTextPaint=new TextPaint();
+        mTextPaint.setColor(Color.BLACK);
+        mTextPaint.setTextSize(50);
     }
 
     /**
@@ -319,6 +385,16 @@ public class ScrollView extends View {
      * @param canvas
      */
     private void drawTwoLine(Canvas canvas) {
+        if (mTwoLinePaint==null) {
+            mTwoLinePaint=new Paint();
+        }
+//        if (mFristLine==null) {
+//            mFristLine=new Path();
+//            mFristLine.
+//        }
+        mTwoLinePaint.setColor(Color.BLUE);
+        canvas.drawLine(0,mCurrentHeight / 3, mCurrentWidth,mCurrentHeight / 3, mTwoLinePaint);
+        canvas.drawLine(0,mCurrentHeight*2/3,mCurrentWidth,mCurrentHeight*2/3,mTwoLinePaint);
 
     }
 
@@ -376,6 +452,20 @@ public class ScrollView extends View {
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
+    }
+
+    interface ScrollViewAdapter extends Adapter {
+        @Override
+        int getCount();
+
+        @Override
+        Object getItem(int position);
+
+        @Override
+        long getItemId(int position);
+
+        @Override
+        View getView(int position, View convertView, ViewGroup parent);
     }
 
 }

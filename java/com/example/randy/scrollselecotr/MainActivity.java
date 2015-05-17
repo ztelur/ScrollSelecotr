@@ -8,10 +8,12 @@ import android.view.MenuItem;
 
 public class MainActivity extends Activity {
     private String mTest;
+    private ScrollView scrollView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        scrollView=(ScrollView)findViewById(R.id.scroller);
     }
 
 
