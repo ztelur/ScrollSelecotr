@@ -91,6 +91,8 @@ public class ScrollView extends View {
      */
     private Rect mContentRect=new Rect();
 
+    private RectF mScrollerStartViewport=new RectF();
+
     private Point mSurfaceSizeBuffer =new Point();
     /**
      * 显示的数据
@@ -165,6 +167,7 @@ public class ScrollView extends View {
     public boolean onTouchEvent(MotionEvent event) {
         boolean res=false;
         if (mDetector!=null) {
+            Log.e(TAG,"mDector is handle event");
              res = mDetector.onTouchEvent(event);
         } else {
             res=super.onTouchEvent(event);
@@ -172,9 +175,38 @@ public class ScrollView extends View {
         return res;
     }
 
+    /**
+     * 这个函数是重载的,是做什么的呢?........
+     */
     @Override
     public void computeScroll() {
+        Log.e(TAG,"computeScroll");
         super.computeScroll();
+        boolean needsInvalidate=false;
+        if (mScroller.computeScrollOffset()) {
+            //the scroller isn't finished,meaning that a fling or other operation is currently active
+            computeScrollSurfaceSize(mSurfaceSizeBuffer);
+
+            int currX=mScroller.getCurrX();
+            int currY=mScroller.getCurrY();
+
+            boolean tcanScrollX=canScrollX&&(mCurrentViewport.left>AXIS_X_MIN
+                                    ||mCurrentViewport.right<AXIS_X_MAX);
+            boolean tcanScrollY=canScrollY&&(mCurrentViewport.top>AXIS_Y_MIN
+                                    ||mCurrentViewport.bottom<AXIS_Y_MAX);
+
+            //对四个边的edgeEffect进行调节
+            /////
+            ////TODO:中间少了很多代码的啊!!!!
+            float currXRange=AXIS_X_MIN+(AXIS_X_MAX-AXIS_X_MIN)*currX/mSurfaceSizeBuffer.x;
+            float currYRange=AXIS_Y_MAX-(AXIS_Y_MAX-AXIS_Y_MIN)*currY/mSurfaceSizeBuffer.y;
+
+            setmCurrentViewportBottomAndLeft(currXRange,currYRange);
+
+            if (needsInvalidate) {
+                ViewCompat.postInvalidateOnAnimation(this);
+            }
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -182,16 +214,16 @@ public class ScrollView extends View {
     ///////////   Listener
     ////////////////////////////////////////////////////////////////////////////
     private void initGestureListener() {
-        simpleOnGestureListener=new GestureDetector.SimpleOnGestureListener(){
+        simpleOnGestureListener = new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
                 /**要进行滚动的啊
-                计算滚动的距离,更新mContetnRect的值
+                 计算滚动的距离,更新mContetnRect的值
                  {@link mCurrentViewport}
-                **/
-                float viewportOffsetX=distanceX*mCurrentViewport.width()/mContentRect.width();
-                float viewportOffsetY=distanceY*mCurrentViewport.height()/mContentRect.height();
-
+                 **/
+                float viewportOffsetX = distanceX * mCurrentViewport.width() / mContentRect.width();
+                float viewportOffsetY = distanceY * mCurrentViewport.height() / mContentRect.height();
+                Log.e(TAG, "onScroll" + viewportOffsetX + " " + viewportOffsetY);
                 computeScrollSurfaceSize(mSurfaceSizeBuffer);
 
                 /**
@@ -202,62 +234,72 @@ public class ScrollView extends View {
                  * 计算在当前mSurfaceSize下的滑动的距离????
                  */
 
-                int scrolledX=(int)(mSurfaceSizeBuffer.x*(mCurrentViewport.left+viewportOffsetX-
-                                        AXIS_X_MIN)/(AXIS_X_MAX-AXIS_X_MIN));
-                int scrolledY=(int)(mSurfaceSizeBuffer.y*(AXIS_Y_MAX-mCurrentViewport.bottom-
-                                        viewportOffsetY)/(AXIS_Y_MAX-AXIS_Y_MIN));
+                int scrolledX = (int) (mSurfaceSizeBuffer.x * (mCurrentViewport.left + viewportOffsetX -
+                        AXIS_X_MIN) / (AXIS_X_MAX - AXIS_X_MIN));
+                int scrolledY = (int) (mSurfaceSizeBuffer.y * (AXIS_Y_MAX - mCurrentViewport.bottom -
+                        viewportOffsetY) / (AXIS_Y_MAX - AXIS_Y_MIN));
 
-                boolean tcanScrollX=canScrollX&&(
-                            mCurrentViewport.left>AXIS_X_MIN
-                         ||mCurrentViewport.right<AXIS_X_MAX
-                        );
-                boolean tcanScrollY=canScrollY&&(
-                        mCurrentViewport.top>AXIS_Y_MIN
-                        ||mCurrentViewport.bottom<AXIS_Y_MAX
-                        );
+                boolean tcanScrollX = canScrollX && (
+                        mCurrentViewport.left > AXIS_X_MIN
+                                || mCurrentViewport.right < AXIS_X_MAX
+                );
+                boolean tcanScrollY = canScrollY && (
+                        mCurrentViewport.top > AXIS_Y_MIN
+                                || mCurrentViewport.bottom < AXIS_Y_MAX
+                );
                 //改变了mCurrentViewport的啊.
-                setmCurrentViewportBottomAndLeft(mCurrentViewport.left+viewportOffsetX,
-                                                        mCurrentViewport.bottom+viewportOffsetY);
+                setmCurrentViewportBottomAndLeft(mCurrentViewport.left + viewportOffsetX,
+                        mCurrentViewport.bottom + viewportOffsetY);
                 //对四个角的effect进行onPull
-                if (canScrollX&&scrolledX<0) {
+                if (canScrollX && scrolledX < 0) {
                     //??????TODO: scrolledX/(float)mContentRect.width
-                    mEdgeEffectLeft.onPull(scrolledX/(float)mContentRect.width());
-                    mEdgeEffectLeftActive=true;
+                    mEdgeEffectLeft.onPull(scrolledX / (float) mContentRect.width());
+                    mEdgeEffectLeftActive = true;
                 }
                 /**
                  *  scrolledX+mContetnRect.width>mSurfaceSizeBuffer.x
                  */
-                if (canScrollX&&scrolledX> mSurfaceSizeBuffer.x-mContentRect.width()) {
-                    mEdgeEffectRight.onPull((scrolledX-mSurfaceSizeBuffer.x+mContentRect.width())
-                                    /(float)mContentRect.width());
-                    mEdgeEffectRightActive=true;
+                if (canScrollX && scrolledX > mSurfaceSizeBuffer.x - mContentRect.width()) {
+                    mEdgeEffectRight.onPull((scrolledX - mSurfaceSizeBuffer.x + mContentRect.width())
+                            / (float) mContentRect.width());
+                    mEdgeEffectRightActive = true;
                 }
                 return true;
             }
 
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                Log.e(TAG, "onFling");
                 return super.onFling(e1, e2, velocityX, velocityY);
             }
 
             @Override
             public boolean onSingleTapUp(MotionEvent e) {
-
+                Log.e(TAG, "onSingleTapUp");
                 return super.onSingleTapUp(e);
             }
 
             @Override
             public boolean onDown(MotionEvent e) {
                 //要停止滑动的
-                if (isPerformingScroll) {
-                    mScroller.forceFinished(true);
-                    clearMessage();
-                    return true;
-                }
-                return false;
+//                if (isPerformingScroll) {
+//                    mScroller.forceFinished(true);
+//                    clearMessage();
+//                    return true;
+//                }
+//                return false;
+                releaseEdgeEffects();
+                mScrollerStartViewport.set(mCurrentViewport);
+                mScroller.forceFinished(true);
+                ViewCompat.postInvalidateOnAnimation(ScrollView.this);
+                return true;
             }
         };
     }
+        private void releaseEdgeEffects() {
+
+        }
+
 
     /**
      * Computes the current scrollable surface size, in pixels. For example, if the entire chart
@@ -312,11 +354,21 @@ public class ScrollView extends View {
         setMeasuredDimension(measuredWidth, mesauredHeight);
         mCurrentHeight=getMeasuredHeight();
         mCurrentWidth=measuredWidth;
+        //获取最小的大小啊
+        int minCharSize=getResources().getDimensionPixelSize(R.dimen.min_view_size);
+        //TODO:这个方法还是挺重要的啊,这是设定自定义view的一个重要的方法.
+        setMeasuredDimension(Math.max(getSuggestedMinimumWidth(),
+                                            resolveSize(minCharSize+getPaddingLeft()+40+getPaddingRight(),widthMeasureSpec)),
+                                                Math.max(getSuggestedMinimumHeight(),
+                                            resolveSize(minCharSize+getPaddingTop()+getPaddingBottom(),heightMeasureSpec)));
+
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        mContentRect.set(getPaddingLeft()+40,getPaddingTop(),getWidth()-getPaddingRight(),
+                                    getHeight()-getPaddingBottom()-40);
     }
 
     /**
@@ -343,6 +395,7 @@ public class ScrollView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        Log.e(TAG,"onDraw");
         int num=canvas.save();
         //Draws the axes 画出标志的两条线
         drawTwoLine(canvas);
@@ -352,7 +405,11 @@ public class ScrollView extends View {
         drawEdgeEffect(canvas);
 
         canvas.restoreToCount(clipRestoreCount);
-
+        if (mAxisPaint==null) {
+            mAxisPaint=new Paint();
+            mAxisPaint.setColor(Color.YELLOW);
+            mAxisPaint.setStyle(Paint.Style.STROKE);
+        }
         canvas.drawRect(mContentRect,mAxisPaint);
 
         canvas.restoreToCount(num);
@@ -366,13 +423,41 @@ public class ScrollView extends View {
         if (mTextPaint==null) {
             setDefaultTextPaint();
         }
-        canvas.drawText("3",10,10,mTextPaint);
+        float y=getDrawX(mCurrentViewport.height()/6+mCurrentViewport.top);
+        float x=getDrawY(mCurrentViewport.width()/2+mCurrentViewport.left);
+        canvas.drawText("3",x,y,mTextPaint);
 
-        canvas.drawText("4",10,mCurrentHeight/3+10,mTextPaint);
+        y=getDrawY(mCurrentViewport.height()/2+mCurrentViewport.top);
+        canvas.drawText("4",x,y,mTextPaint);
 
-        canvas.drawText("5",10,mCurrentHeight*2/3+10,mTextPaint);
+        y=getDrawY(mCurrentViewport.height()/6*5+mCurrentViewport.top);
+        canvas.drawText("5",x,y,mTextPaint);
         canvas.restoreToCount(num);
     }
+
+    /**
+     * 计算的数值可能outside view bound
+     * @param y
+     * @return
+     * 很好奇为什么是bottom- 而不是top进行减的呢?
+     * 可能是因为画布的y值是向下的啊.
+     */
+    private float getDrawY(float y) {
+        return mContentRect.bottom-mContentRect.height()*
+                (y-mCurrentViewport.top)/mCurrentViewport.height();
+
+    }
+
+    /**
+     * 相比于getDrawY,这个函数的意图和算法都是很清楚的啊.
+     * @param x
+     * @return
+     */
+    private float getDrawX(float x) {
+        return mContentRect.left+mContentRect.width()*
+                (x-mCurrentViewport.left)/mCurrentViewport.width();
+    }
+
 
     private void setDefaultTextPaint() {
         mTextPaint=new TextPaint();
@@ -392,10 +477,13 @@ public class ScrollView extends View {
 //            mFristLine=new Path();
 //            mFristLine.
 //        }
+        //根据mCurrentView来计算y值
         mTwoLinePaint.setColor(Color.BLUE);
-        canvas.drawLine(0,mCurrentHeight / 3, mCurrentWidth,mCurrentHeight / 3, mTwoLinePaint);
-        canvas.drawLine(0,mCurrentHeight*2/3,mCurrentWidth,mCurrentHeight*2/3,mTwoLinePaint);
-
+        float firstY=mCurrentViewport.height()/3+mCurrentViewport.top;
+        float secondY=mCurrentViewport.height()*2/3+mCurrentViewport.top;
+        Log.e(TAG,"draw line"+firstY+" "+secondY+ " "+mContentRect.width()+" the Current"+mCurrentViewport.width());
+        canvas.drawLine(0, getDrawY(firstY), mContentRect.width(), getDrawY(firstY), mTwoLinePaint);
+        canvas.drawLine(0,getDrawY(secondY),mContentRect.width(),getDrawY(secondY),mTwoLinePaint);
     }
 
     /**
