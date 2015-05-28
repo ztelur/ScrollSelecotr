@@ -1,39 +1,47 @@
-package com.example.randy.scrollselecotr;
 
+package com.example.randy.scrollselecotr;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.ImageLoader;
+import com.example.randy.scrollselecotr.R;
 import com.example.randy.scrollselecotr.utils.VolleyInstance;
+
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Created by randy on 15-5-18.
- *
- * 图片九宫格
- *
  */
 public class NineGridView extends ViewGroup implements View.OnClickListener{
+    private static final String TAG="NineGridView";
     private float default_width_gap=5;
     private float default_height_gap=5;
 
-    private int rows;
-    private int cols;
+    protected int rows;
+    protected int cols;
 
-    private int gaps=10;
+    protected int gaps=10;
 
-//    private
-    private ItemClickListener mListener;
+    protected int margin=10;
 
-    private List<String> dataList=new ArrayList<String>();
-    private int total_width;
+    //    private
+    protected ItemClickListener mListener;
+
+    protected List<String> dataList=new ArrayList<String>();
+    protected int total_width;
+
+    protected int singleWidth;
+    protected  int singleHeght;
     public NineGridView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
@@ -49,15 +57,16 @@ public class NineGridView extends ViewGroup implements View.OnClickListener{
 
     }
 
-    private void layoutChildrenView() {
+    protected void layoutChildrenView() {
+        Log.e(TAG,"layoutChildView call");
         int childNum=dataList.size();
-        int singleWidth=(total_width-gaps*(rows-1))/3;
-        int singleHeight=singleWidth;
+        singleWidth=(total_width-margin*2-gaps*(rows-1))/3;
+        singleHeght=singleWidth;
 
         //根据view的数量确定size
-        LayoutParams params=getLayoutParams();
-        params.height=singleHeight*rows+gaps*(rows-1);
-        params.width=singleWidth*cols+gaps*(cols-1);
+        ViewGroup.LayoutParams params=getLayoutParams();
+        params.height=singleHeght*rows+gaps*(rows-1)+margin*2;
+        params.width=singleWidth*cols+gaps*(cols-1)+margin*2;
 
         setLayoutParams(params);
 
@@ -65,12 +74,13 @@ public class NineGridView extends ViewGroup implements View.OnClickListener{
             ImageView childview=(ImageView)getChildAt(i);
             startImgRequest(dataList.get(i),childview);
             int [] positions=findPositions(i);
-            int left=(singleWidth+gaps)*positions[0];
-            int top=(singleHeight+gaps)*positions[1];
-            childview.layout(left,top,left+singleWidth,top+singleHeight);
+            int left=margin+(singleWidth+gaps)*positions[0];
+            int top=margin+(singleHeght+gaps)*positions[1];
+            Log.e(TAG, "the i :"+i+"the round is "+left+" "+top+" "+singleWidth+" "+top+singleHeght);
+            childview.layout(left,top,left+singleWidth,top+singleHeght);
         }
     }
-    private int[] findPositions(int childNum) {
+    protected int[] findPositions(int childNum) {
         int[] position=new int[2];
         int size=dataList.size();
         //   x x x
@@ -83,32 +93,36 @@ public class NineGridView extends ViewGroup implements View.OnClickListener{
 
 
     public void setImagesData(List<String> list) {
-        if (list==null||list.isEmpty()) {
+        if (list == null || list.isEmpty()) {
             return;
         }
-        generateChildLayout(list.size());
+        Log.e(this.getClass().getName(),"setImageData the list is"+list.size());
+        dataList = list;
+        initView();
+    }
+
+    protected void initView() {
+        Log.e(TAG,"initView");
+        generateChildLayout(dataList.size());
         removeAllViews();
-        for(int i=0;i<list.size();i++) {
-            ImageView iv=generateImageView();
+        for(int i=0;i<dataList.size();i++) {
+            ImageView iv=generateImageView(i);
             iv.setPadding(0, 0, 0, 0);
             iv.setBackgroundColor(Color.BLUE);
             addView(iv, generateDefaultLayoutParams());
             iv.setOnClickListener(this);
             iv.setTag(i);
-//            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
         }
-        dataList=list;
         layoutChildrenView();
-
     }
-    private ImageView generateImageView() {
+    protected ImageView generateImageView(int id) {
         ImageView iv=new ImageView(getContext());
         return iv;
     }
 
 
     //TODO:其实可以使用数学方法计算
-    private void generateChildLayout(int size) {
+    protected void generateChildLayout(int size) {
         if (size<3) {
             rows=1;
             cols=size;
@@ -136,7 +150,10 @@ public class NineGridView extends ViewGroup implements View.OnClickListener{
             public void onResponse(ImageLoader.ImageContainer paramAnonymousImageContainer, boolean paramAnonymousBoolean)
             {
                 if (paramAnonymousImageContainer.getBitmap() != null){
-                    paramImageView.setImageBitmap(paramAnonymousImageContainer.getBitmap());
+                    Bitmap res=paramAnonymousImageContainer.getBitmap();
+
+                    paramImageView.setImageBitmap(zoomBitmap(res,singleWidth,
+                            singleHeght));
                     paramImageView.setClickable(true);
                 }else{
                     paramImageView.setImageDrawable(getResources().getDrawable(R.drawable.ic_launcher));
@@ -160,5 +177,23 @@ public class NineGridView extends ViewGroup implements View.OnClickListener{
         if (mListener!=null) {
             mListener.itemClick((Integer)(i));
         }
+    }
+
+    /**
+     * 按照ImageView需要的大小缩放bitmap
+     * @param bitmap
+     * @param width  缩放后的大小
+     * @param height 缩放后的高
+     * @return
+     */
+    protected Bitmap zoomBitmap(Bitmap bitmap,int width,int height) {
+        int oldw=bitmap.getWidth();
+        int oldh=bitmap.getHeight();
+        Matrix matrix=new Matrix();
+        float scaleWidth=((float)width/oldw);
+        float scaleHeight=((float)height/oldh);
+        matrix.postScale(scaleWidth,scaleHeight);
+        Bitmap res=Bitmap.createBitmap(bitmap,0,0,oldw,oldh,matrix,true);
+        return res;
     }
 }
