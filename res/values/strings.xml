@@ -4,5 +4,7 @@
     <string name="app_name">ScrollSelecotr</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="text1">文本1</string>
+    <string name="text2">文本2</string>
 
 </resources>

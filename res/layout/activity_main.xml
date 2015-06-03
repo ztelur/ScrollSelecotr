@@ -1,4 +1,4 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
     android:layout_height="match_parent" android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
@@ -7,10 +7,12 @@
 
     <TextView android:text="@string/hello_world" android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
-    <com.example.randy.scrollselecotr.main.TestLinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-
-        </com.example.randy.scrollselecotr.main.TestLinearLayout>
-</RelativeLayout>
+    <TextView
+        style="@style/daymode"
+        android:text="@string/text1"
+      />
+    <TextView
+        style="@style/daymode"
+        android:text="@string/text2"
+        />
+</LinearLayout>
