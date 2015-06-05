@@ -1,11 +1,13 @@
 package com.example.randy.scrollselecotr;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ListView;
 
+import com.example.randy.scrollselecotr.game.model.GameActivity;
 import com.example.randy.scrollselecotr.ui.droprefresh.DropRefreshListView;
 
 
@@ -16,7 +18,9 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 //        listView=(DropRefreshListView)findViewById(R.id.listview);
-    }
+        Intent intent=new Intent(MainActivity.this, GameActivity.class);
+        startActivity(intent);
+           }
 
 
     @Override
