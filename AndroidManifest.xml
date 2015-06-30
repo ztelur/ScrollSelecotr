@@ -29,6 +29,14 @@
             android:name=".game.model.SelectActivity"
             android:label="@string/title_activity_select" >
         </activity>
+        <activity
+            android:name=".firststart.FirstActivity"
+            android:label="@string/title_activity_first" >
+        </activity>
+        <activity
+            android:name=".firststart.HintActivity"
+            android:label="@string/title_activity_hint" >
+        </activity>
     </application>
 
 </manifest>
