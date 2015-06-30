@@ -399,6 +399,7 @@ public class ScrollView extends View {
         int num=canvas.save();
         //Draws the axes 画出标志的两条线
         drawTwoLine(canvas);
+//        canvas.drawPath();
         //裁剪一些区域
         int clipRestoreCount=canvas.save();
         drawDataUnclipped(canvas);

@@ -3,49 +3,47 @@ package com.example.randy.scrollselecotr.game.model;
 import android.graphics.PointF;
 import android.util.Log;
 
+import com.example.randy.scrollselecotr.game.model.observer.Observer;
+
 /**
  * Created by randy on 15-6-5.
  */
-public class LogicMdel {
+public class LogicMdel implements Observer{
     // y=kx+b;
     private double k;
     private double b;
+
 
     //整个正方形的长宽高啊.
     private double width;
     private double height;
 
 
-    //下一个碰撞点的位置
-    private double mDotX;
-    private double mDotY;
+    //下一个路径重点位置位置
+//    private double mEndX;
+//    private double mENdY;
 
+    private PointF mEndPoint=new PointF();
+    //当前位置
+    private PointF mCurrentPoint;
 
-    //路线的起始位置啊.
-    private float mViewStartX;
-    private float mViewStartY;
-    //当前的位置啊.
-    private float mViewLocationX;
-    private float mViewLocationY;
-
-
-
-    private double r; //圆的半径
-
-    private int xDircetion; //TODO:方向,暂时使用,以后可以使用向量代表啊. -1 标示向x正轴方向
-    private int yDirection;
     //@onFling
-    protected PointF mDown;
+    //路径的起始点
     protected PointF mStart;
 
+    private double r; //圆的半
+    private int xDircetion; //TODO:方向,暂时使用,以后可以使用向量代表啊. -1 标示向x正轴方向
+    private int yDirection;
 
-    private ReboundListener mListener=null;
 
-    public ReboundListener getmListener() {
+
+    private ChangeListener mListener=null;
+
+    public ChangeListener getmListener() {
         return mListener;
     }
 
-    public void setmListener(ReboundListener mListener) {
+    public void setmListener(ChangeListener mListener) {
         this.mListener = mListener;
     }
 
@@ -81,68 +79,48 @@ public class LogicMdel {
         this.height = height;
     }
 
-    public double getmDotX() {
-        return mDotX;
-    }
 
-    public void setmDotX(double mDotX) {
-        this.mDotX = mDotX;
-    }
-
-    public double getmDotY() {
-        return mDotY;
-    }
-
-    public void setmDotY(double mDotY) {
-        this.mDotY = mDotY;
-    }
 
     public double getR() {
         return r;
     }
 
-    public float getmViewStartX() {
-        return mViewStartX;
-    }
+//    public float getmViewStartX() {
+//        return mViewStartX;
+//    }
+//
+//    public void setmViewStartX(float mViewStartX) {
+//        this.mViewStartX = mViewStartX;
+//    }
+//
+//    public float getmViewStartY() {
+//        return mViewStartY;
+//    }
+//
+//    public void setmViewStartY(float mViewStartY) {
+//        this.mViewStartY = mViewStartY;
+//    }
 
-    public void setmViewStartX(float mViewStartX) {
-        this.mViewStartX = mViewStartX;
-    }
 
-    public float getmViewStartY() {
-        return mViewStartY;
-    }
-
-    public void setmViewStartY(float mViewStartY) {
-        this.mViewStartY = mViewStartY;
-    }
-
-    public float getmViewLocationX() {
-        return mViewLocationX;
-    }
-
-    public void setmViewLocationX(float mViewLocationX) {
-        this.mViewLocationX = mViewLocationX;
-    }
-
-    public float getmViewLocationY() {
-        return mViewLocationY;
-    }
-
-    public void setmViewLocationY(float mViewLocationY) {
-        this.mViewLocationY = mViewLocationY;
-    }
 
     public void setR(double r) {
         this.r = r;
     }
 
-    public PointF getmDown() {
-        return mDown;
+    public PointF getmEndPoint() {
+        return mEndPoint;
     }
 
-    public void setmDown(PointF mDown) {
-        this.mDown = mDown;
+    public void setmEndPoint(PointF mEndPoint) {
+        this.mEndPoint = mEndPoint;
+    }
+
+    public PointF getmCurrentPoint() {
+        return mCurrentPoint;
+    }
+
+    public void setmCurrentPoint(PointF mCurrentPoint) {
+        this.mCurrentPoint = mCurrentPoint;
     }
 
     public PointF getmStart() {
@@ -152,22 +130,25 @@ public class LogicMdel {
     public void setmStart(PointF mStart) {
         this.mStart = mStart;
     }
+
+
     public void setTwoPoint(PointF down,PointF start) {
-        setmDown(down);
+
         setmStart(start);
-        figureFunction();
+        figureFunction(down,start);
         figurePathLength();
 
     }
-    protected void figureFunction() {
-        if (mStart==null||mDown==null) {
+    protected void figureFunction(PointF down,PointF start) {
+        if (start==null||down==null) {
             throw new RuntimeException("LogicMdel figureFunction mStart mDown is null");
         }
-        this.k=(mStart.y-mDown.y)/(mStart.x-mDown.x);
-        this.b=mStart.y-this.k*mStart.x;
-        this.xDircetion=(int)(mStart.x-mDown.x);
-        this.yDirection=(int)(mStart.y-mDown.y);
+        this.k=(start.y-down.y)/(start.x-down.x);
+        this.b=start.y-this.k*start.x;
+        this.xDircetion=(int)(start.x-down.x);
+        this.yDirection=(int)(start.y-down.y);
     }
+
 
     /**
      * 丑陋的if语句实现,应该可以使用数学给出更加简单的计算
@@ -187,8 +168,8 @@ public class LogicMdel {
                 //由于是向(-1,1)方向进行,所以看x大的,或者y小的就可以啦
 
                 //其实如果是二者相等的话,应该是直接原路返回的啊.
-                this.mDotX=dotX>=tempDotX?dotX:tempDotX;
-                this.mDotY=dotY>tempDotY?tempDotY:dotY;
+                this.mEndPoint.x =(float)(dotX>=tempDotX?dotX:tempDotX);
+                this.mEndPoint.y =(float)(dotY>tempDotY?tempDotY:dotY);
 
             } else {    //{-1,-1}
                 double dotY=r;
@@ -198,8 +179,8 @@ public class LogicMdel {
                 double tempDotY=k*dotX+b;
 
                 //比较二者,{-1,-1} 方向,其实看
-                this.mDotX=dotX>tempDotX?dotX:tempDotX;
-                this.mDotY=dotY>tempDotY?dotY:tempDotY;
+                this.mEndPoint.x =(float)(dotX>tempDotX?dotX:tempDotX);
+                this.mEndPoint.y =(float)(dotY>tempDotY?dotY:tempDotY);
             }
         } else {   //x>0
             if (yDirection>0) {   // {1,1}
@@ -210,8 +191,8 @@ public class LogicMdel {
                 double tempDotX=(dotY-b)/k;
 
                 //比较二者,其实是 x,y小的是先碰到的啊.
-                this.mDotX=dotX>tempDotX?tempDotX:dotX;
-                this.mDotY=dotY>tempDotY?tempDotY:dotY;
+                this.mEndPoint.x =(float)(dotX>tempDotX?tempDotX:dotX);
+                this.mEndPoint.y =(float)(dotY>tempDotY?tempDotY:dotY);
 
             } else {   // {1,-1}
                 double dotX=width-r;
@@ -221,8 +202,8 @@ public class LogicMdel {
                 double tempDotX=(dotY-b)/k;
 
                 //比较二者,x越小,越是的,y值越大的越是的
-                this.mDotX=dotX>tempDotX?tempDotX:dotX;
-                this.mDotY=dotY>tempDotY?dotY:tempDotY;
+                this.mEndPoint.x =(float)(dotX>tempDotX?tempDotX:dotX);
+                this.mEndPoint.y =(float)(dotY>tempDotY?dotY:tempDotY);
 
 
             }
@@ -232,30 +213,66 @@ public class LogicMdel {
     /**
      * 根据动画器的计算出来的x来计算现在view的位置
      * @param x
+     * @deprecated  暂时不用了.
      */
     public void setPathX(float x) {
-        this.mViewLocationX=x;
-        this.mViewLocationY=(float)(k*x+b);
+        this.mCurrentPoint.x=x;
+        this.mCurrentPoint.y=(float)(k*x+b);
 
-        if (mViewLocationX==mDotX||mViewLocationY==mDotY) {  //这个时候要进行反射啦.
+        if (mCurrentPoint.equals(mEndPoint)) {  //这个时候要进行反射啦.
             Log.e("setPathX","startRebound");
-            onRebound(mViewLocationX,mViewLocationY);
         }
 
     }
 
     /**
-     * 反弹啦.
+     * 反弹经过的点
+     * @param point
      */
-    private void onRebound(float x,float y) {
+    private void onRebound(PointF point) {
         this.k=-k;
-        this.b=k*mDotX+mDotY;
+        this.b=k* mEndPoint.x + mEndPoint.y;
         //更新啊
-        setmStart(new PointF(x,y));
+        setmStart(point);
         figurePathLength();
-        mListener.onRebound(mViewLocationX,(float)this.mDotX,10L);
+        mListener.onRebound(mStart,mEndPoint,2000);
     }
-    interface  ReboundListener {
-        public void onRebound(float startX,float endX,long time);
+
+    //更新当前运动的点啊.
+    @Override
+    public void update(PointF pointF) {
+        this.mCurrentPoint=pointF;
+        //TODO:这里要进行检查是否有其他的影响路径的物体啊.
+        //对于反弹,这个要在刚开始计算路径的时候就计算好重点的位置,如果是其他的加速,减少,等效果
+        //在这个地方进行区分
+        doUpdate();
+
     }
+
+
+    private void doUpdate() {
+        if (mCurrentPoint.equals(mEndPoint)) {
+            //要进行反弹啦.
+
+        }
+
+
+    }
+
+    interface  ChangeListener {
+        /**
+         * 其实速度的改变,就是时间的改变,速度应该也是在这个类中的进行的啊.
+         * @param start
+         * @param end
+         * @param time
+         */
+        public void onRebound(PointF start,PointF end,long time);
+
+        /**
+         * 其他效果的改变,暂时还没有确定呢.
+         */
+        public void onChange();
+    }
+
+
 }

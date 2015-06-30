@@ -7,30 +7,28 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
-import android.view.ViewGroup;
+import android.view.View;
+import android.view.ViewStub;
+import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
 
 import com.example.randy.scrollselecotr.R;
-import com.facebook.rebound.SimpleSpringListener;
-import com.facebook.rebound.Spring;
-import com.facebook.rebound.SpringSystem;
+import com.example.randy.scrollselecotr.game.model.animator.PointFAnimatorFactory;
+import com.example.randy.scrollselecotr.game.model.observer.Observer;
 
-public class GameActivity extends Activity implements LogicMdel.ReboundListener{
-    ///////////////////////////////////////////////////////////////////////////////////////
-    //////   动画
-    //////////////////////////////////////////////////////////////////////////////////////
+public class GameActivity extends Activity implements Observer{
 
-    ValueAnimator mAnimator;
-
+    ActionControl mController;
 
     ///////////////////////////////////////////////////////////////////////////////////////
     //////   界面组件
     //////////////////////////////////////////////////////////////////////////////////////
     private ImageView mCircle;
-    private LogicMdel mPath;
+
 
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -47,7 +45,10 @@ public class GameActivity extends Activity implements LogicMdel.ReboundListener{
     protected boolean isMark;//down动作是否在运动物体上
 
 
-
+    //////////////////////////////////////////////////////////////////////////////////////
+    ////////////  view当前的位置
+    ////////////////////////////////////////////////////////////////////////////////////
+    private PointF mCurrentPoint;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,52 +59,34 @@ public class GameActivity extends Activity implements LogicMdel.ReboundListener{
     private void init() {
         Log.e("GameActivity","init");
         initView();
-        mPath=new LogicMdel();
-        mPath.setmListener(this);
+        mController=new ActionControl(this);
         mGestureListener=new GestureListener();
         mDetector=new GestureDetector(GameActivity.this,mGestureListener);
-        initAnimatorListener();
-
     }
     private void initView() {
+        ((ViewStub)findViewById(R.id.lastupdate_time)).inflate();
         mCircle=(ImageView)findViewById(R.id.circle);
-
+        mCircle.animate().rotationX(0).rotation(1f).setDuration(100);
+//        LayoutInflater
     }
-    private void initAnimatorListener(){
-
-
-        if (mAnimator!=null) {
-            mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    float currentXValue=(Float)animation.getAnimatedValue();
-                    Log.d("AnimatorListener the current X value",currentXValue+"");
-                    mPath.setPathX(currentXValue);
-                    mCircle.setTranslationX(mPath.getmViewLocationX());
-                    mCircle.setTranslationY(mPath.getmViewLocationY());
-
-
-
-                    //设置ImageView的位置啊.
-                }
-            });
-
-        }
-    }
-
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_game, menu);
         return true;
+//        LayoutInflater
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        this.mDetector.onTouchEvent(ev);
+        return super.dispatchTouchEvent(ev);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         this.mDetector.onTouchEvent(event);
         return super.onTouchEvent(event);
-
     }
 
     @Override
@@ -132,8 +115,25 @@ public class GameActivity extends Activity implements LogicMdel.ReboundListener{
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
             //在这里获得移动的方向,速度和角度
             Log.e("Gesture","onFing");
-                checkDown(e1);
-                doMove(e1, e2, velocityX, velocityY);
+            checkDown(e1);
+            if (isMark) {
+
+                //转换坐标系啊.
+                float downX=e1.getX();
+                float downY=e1.getY();
+
+                float startX=e2.getX();
+                float startY=e2.getY();
+
+                // 获取屏幕长和高
+                int width = GameActivity.this.getWindowManager().getDefaultDisplay().getWidth();
+                int height = GameActivity.this.getWindowManager().getDefaultDisplay().getHeight();
+                PointF down=new PointF(width-downX,height-downY);
+                PointF start=new PointF(width-startX,height-startX);
+                mController.setWidthAndHeight(width,height);
+
+                mController.doMove(down,start, velocityX, velocityY);
+            }
             return super.onFling(e1, e2, velocityX, velocityY);
         }
 
@@ -142,56 +142,43 @@ public class GameActivity extends Activity implements LogicMdel.ReboundListener{
             Log.e("Gesture","onDown");
             //记录是否在ImageView中啊.
             checkDown(e);
-            return super.onDown(e);
+            return true;
         }
     }
 
     private void checkDown(MotionEvent e) {
+        Log.e("GameActivity","checkDown");
         float x=e.getX();
         float y=e.getY();
-        final Rect frame=new Rect();
-        mCircle.getHitRect(frame);
+        Rect frame=new Rect();
+        frame=getHitRect(mCircle);
+        Log.e("hitRect ","left:"+frame.left+" top"+frame.top+" right: "+frame.right+" botoom"+ frame.bottom+
+                                                            "the x "+x+" the y"+y);
         if (frame.contains((int)x,(int)y)) {
+            Log.e("GameActivity","checkDown true");
             isMark=true;
         }
     }
-    /**
-     *
-     * @param e1  The first down motion event that started the fling.
-     * @param e2   The move motion event that triggered the current onFling
-     * @param velocityX  The velocity of this fling measured in pixels per second along the x axis.
-     * @param velocityY  The velocity of this fling measured in pixels per second along the y axis
-     */
-    private void doMove(MotionEvent e1,MotionEvent e2,float velocityX,float velocityY) {
-        if (mPath==null) {
-            mPath=new LogicMdel();
-        }
-        PointF down=new PointF(e1.getX(),e1.getY());
-        PointF start=new PointF(e2.getX(),e2.getY());
-        mPath.setTwoPoint(down,start);
-        //设置路径的起始位置啊.
-
-
-
-        mAnimator=ValueAnimator.ofFloat(start.x,(float)mPath.getmDotX());
-        //TODO:其实这里要根据速率进行计算的啊.
-        //暂时是按照x的距离开始的啊.
-        long xTime=(long)((start.x-mPath.getmDotX())/velocityX);
-        long yTime=(long)((start.y-mPath.getmDotY())/velocityY);
-
-        //TODO:不知道如何处理,先取最大的
-        long duration=xTime>yTime?xTime:yTime;
-        mAnimator.setDuration(2000);
-        initAnimatorListener();
-        mAnimator.start();
+    public Rect getHitRect(View child){
+        Rect frame = new Rect();
+        frame.left = child.getLeft();
+        frame.right = child.getRight();
+        frame.top = child.getTop();
+        frame.bottom = child.getBottom();
+        return frame;
     }
 
     @Override
-    public void onRebound(float startX,float endX,long time) {
-        mAnimator.cancel();
-        mAnimator=ValueAnimator.ofFloat(startX,endX);
-        mAnimator.setDuration(2000);
-        initAnimatorListener();
-        mAnimator.start();
+    public void update(PointF pointF) {
+        this.mCurrentPoint=pointF;
+        Log.e("GameActivity","update");
+        moveView();
+    }
+    private void moveView() {
+        if (mCurrentPoint==null) {
+            throw new RuntimeException("GameActivty moveView: mCurrentPoint is null");
+        }
+        mCircle.setTranslationY(mCurrentPoint.y);
+        mCircle.setTranslationX(mCurrentPoint.x);
     }
 }

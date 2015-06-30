@@ -7,5 +7,10 @@
     <string name="text1">文本1</string>
     <string name="text2">文本2</string>
     <string name="title_activity_game">GameActivity</string>
+    <string name="title_activity_select">SelectActivity</string>
 
+
+
+    <string name="dummy_fragment">This is a dummy fragment!</string>
+    <string name="mock_item">Mock Item</string>
 </resources>

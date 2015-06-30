@@ -8,6 +8,7 @@ import android.view.MenuItem;
 import android.widget.ListView;
 
 import com.example.randy.scrollselecotr.game.model.GameActivity;
+import com.example.randy.scrollselecotr.game.model.SelectActivity;
 import com.example.randy.scrollselecotr.ui.droprefresh.DropRefreshListView;
 
 
@@ -18,8 +19,9 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 //        listView=(DropRefreshListView)findViewById(R.id.listview);
-        Intent intent=new Intent(MainActivity.this, GameActivity.class);
+        Intent intent=new Intent(MainActivity.this, SelectActivity.class);
         startActivity(intent);
+
            }
 
 
